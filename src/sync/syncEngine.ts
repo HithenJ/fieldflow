@@ -302,30 +302,38 @@ export class SyncEngine {
       return
     }
 
-    const remoteSnap = await getDoc(jobRef)
-    if (remoteSnap.exists() && item.action === 'update') {
-      const remoteData = remoteSnap.data() as Job
-      const localJob = await db.jobs.get(item.entityId)
+    if (item.action === 'update') {
+      let remoteSnap: any = null
+      try {
+        remoteSnap = await getDoc(jobRef)
+      } catch (err) {
+        console.warn('[SyncEngine] Remote getDoc failed during update, proceeding with merge:', err)
+      }
 
-      if (localJob) {
-        // Use field-level merging if dirtyFields are tracked
-        if (localJob.dirtyFields && localJob.dirtyFields.length > 0) {
-          const mergeResult = mergeFieldLevel(localJob, remoteData, localJob.dirtyFields)
-          console.log('[SyncEngine] Field-level merge result:', mergeResult.winner, mergeResult.conflictedFields)
+      if (remoteSnap && remoteSnap.exists()) {
+        const remoteData = remoteSnap.data() as Job
+        const localJob = await db.jobs.get(item.entityId)
 
-          // Clear dirtyFields after successful merge
-          await db.jobs.update(item.entityId, {
-            dirtyFields: [],
-            fieldTimestamps: mergeResult.mergedJob.fieldTimestamps,
-          })
+        if (localJob) {
+          // Use field-level merging if dirtyFields are tracked
+          if (localJob.dirtyFields && localJob.dirtyFields.length > 0) {
+            const mergeResult = mergeFieldLevel(localJob, remoteData, localJob.dirtyFields)
+            console.log('[SyncEngine] Field-level merge result:', mergeResult.winner, mergeResult.conflictedFields)
 
-          await setDoc(jobRef, mergeResult.mergedJob, { merge: true })
-        } else {
-          // Fallback to last-write-wins
-          const resolved = resolveLastWriteWins(localJob, remoteData)
-          await setDoc(jobRef, resolved, { merge: true })
+            // Clear dirtyFields after successful merge
+            await db.jobs.update(item.entityId, {
+              dirtyFields: [],
+              fieldTimestamps: mergeResult.mergedJob.fieldTimestamps,
+            })
+
+            await setDoc(jobRef, mergeResult.mergedJob, { merge: true })
+          } else {
+            // Fallback to last-write-wins
+            const resolved = resolveLastWriteWins(localJob, remoteData)
+            await setDoc(jobRef, resolved, { merge: true })
+          }
+          return
         }
-        return
       }
     }
 
