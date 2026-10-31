@@ -43,14 +43,25 @@ export function useJobs() {
   } = useSyncQueue({ onSyncCompleted: refreshJobs })
 
   onMounted(async () => {
-    await db.seedIfEmpty()
     await db.normalizeLegacyIds()
 
     if (isFirebaseConfigured && navigator.onLine) {
+      // Firebase is configured and we're online — pull from Firestore first
+      // Do NOT seed dummy data; Firestore is the source of truth
       console.log('[useJobs] Connecting and syncing with Firestore on mount...')
-      await syncEngine.retryFailedItems()
       await syncEngine.initialLoadFromFirestore()
+      await syncEngine.retryFailedItems()
       await syncEngine.processQueue()
+
+      // Only seed if Firestore returned nothing AND local DB is still empty
+      const localCount = await db.jobs.count()
+      if (localCount === 0) {
+        console.log('[useJobs] Firestore and local DB are both empty, seeding defaults...')
+        await db.seedIfEmpty()
+      }
+    } else {
+      // Offline or Firebase not configured — seed locally so the app isn't blank
+      await db.seedIfEmpty()
     }
 
     await refreshJobs()
