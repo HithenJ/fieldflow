@@ -19,3 +19,11 @@ export const firebaseConfig: FirebaseConfig = {
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey && firebaseConfig.projectId,
 )
+
+if (typeof window !== 'undefined') {
+  if (isFirebaseConfigured) {
+    console.log('[FieldFlow Firebase] Configured successfully for project:', firebaseConfig.projectId)
+  } else {
+    console.warn('[FieldFlow Firebase] Not configured! Missing VITE_FIREBASE_API_KEY or VITE_FIREBASE_PROJECT_ID.')
+  }
+}
