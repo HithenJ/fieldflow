@@ -46,11 +46,11 @@ export function useJobs() {
     await db.seedIfEmpty()
     await db.normalizeLegacyIds()
 
-    // Check if local DB is empty and try to load from Firestore
-    const jobCount = await db.jobs.count()
-    if (jobCount === 0 && isFirebaseConfigured) {
-      console.log('[useJobs] Local DB is empty, attempting initial load from Firestore')
+    if (isFirebaseConfigured && navigator.onLine) {
+      console.log('[useJobs] Connecting and syncing with Firestore on mount...')
+      await syncEngine.retryFailedItems()
       await syncEngine.initialLoadFromFirestore()
+      await syncEngine.processQueue()
     }
 
     await refreshJobs()
@@ -116,6 +116,8 @@ export function useJobs() {
   }
 
   async function syncNowAndRefresh() {
+    await syncEngine.retryFailedItems()
+    await syncEngine.initialLoadFromFirestore()
     await syncNow()
     await refreshJobs()
   }

@@ -197,10 +197,34 @@ export class SyncEngine {
         if (!localJob) {
           await db.jobs.put({ ...remoteJob, synced: true })
           addedCount++
+        } else {
+          const localTime = localJob.updatedAt ? new Date(localJob.updatedAt).getTime() : 0
+          const remoteTime = remoteJob.updatedAt ? new Date(remoteJob.updatedAt).getTime() : 0
+          if (remoteTime > localTime) {
+            await db.jobs.put({ ...remoteJob, synced: true })
+            addedCount++
+          }
         }
       }
 
-      console.log('[SyncEngine] Initial load complete: added', addedCount, 'jobs')
+      if (remoteJobs.length === 0) {
+        console.log('[SyncEngine] Firestore collection is empty. Syncing local jobs to Firestore...')
+        const localJobs = await db.jobs.filter((j) => !j.isDeleted).toArray()
+        for (const job of localJobs) {
+          await this.pushToFirestore(firestore, {
+            action: 'create',
+            entityId: job.id,
+            jobTitle: job.title,
+            payload: job,
+            clientTimestamp: Date.now(),
+            status: 'pending',
+            retryCount: 0,
+          })
+        }
+        console.log(`[SyncEngine] Uploaded ${localJobs.length} local jobs to Firestore`)
+      }
+
+      console.log('[SyncEngine] Initial load complete: processed', addedCount, 'jobs')
       await this.updatePendingCount()
       this.notifySyncCompleted()
     } catch (err) {

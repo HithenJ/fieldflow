@@ -144,7 +144,8 @@ export async function getPendingSyncItemsSorted(table: SyncQueueTable): Promise<
 }
 
 export async function retryAllFailedSyncItems(table: SyncQueueTable): Promise<void> {
-  await table.where('status').equals('failed').modify({ status: 'pending', retryCount: 0 })
+  await table.where('status').equals('failed').modify({ status: 'pending', retryCount: 0, nextRetryAt: 0 })
+  await table.where('status').equals('pending').modify({ nextRetryAt: 0 })
 }
 
 export async function clearSyncQueueItem(table: SyncQueueTable, id: number): Promise<void> {
