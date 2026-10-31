@@ -1,0 +1,13 @@
+import { createApp } from 'vue'
+import './style.css'
+import App from './App.vue'
+import { registerSW } from 'virtual:pwa-register'
+
+registerSW({
+  immediate: true,
+  onOfflineReady() {
+    console.log('[FieldFlow] App is ready for offline operation.')
+  },
+})
+
+createApp(App).mount('#app')
